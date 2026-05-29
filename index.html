@@ -4,19 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>">
-  <title>🏆 Mundial 2026</title>
+  <title>Mundial 2026</title>
   <style>
     :root {
-      --bg:          #0d1b2a;
-      --bg2:         #111f33;
-      --card:        #172740;
-      --card-hover:  #1e3050;
-      --accent:      #c9a84c;
+      --bg:          #1f3c5a;
+      --bg2:         #172e4a;
+      --card:        #1e3a5c;
+      --card-hover:  #254566;
+      --accent:      #d4a843;
       --accent2:     #e8c96a;
-      --text:        #edf2f7;
-      --text2:       #8fa3c0;
-      --text3:       #4e6a8a;
-      --border:      #263d5c;
+      --text:        #eef3f8;
+      --text2:       #a8bdd6;
+      --text3:       #6689ab;
+      --border:      #2e527a;
       --green:       #22c55e;
       --yellow:      #f59e0b;
       --red:         #ef4444;
@@ -56,7 +56,7 @@
       margin-top: 3px;
     }
     .main {
-      max-width: 900px;
+      max-width: 1200px;
       margin: 0 auto;
       padding: 20px 16px 60px;
     }
@@ -129,6 +129,9 @@
     }
     .toolbar-info { font-size: 12px; color: var(--text3); }
     .toolbar-info .edited-mark { color: var(--accent); font-weight: 700; }
+    .data-source { display:inline-block; font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; margin-left:8px; vertical-align:middle; }
+    .data-source.live { background:rgba(34,197,94,.15); color:#22c55e; border:1px solid rgba(34,197,94,.3); }
+    .data-source.static { background:rgba(168,189,214,.1); color:var(--text3); border:1px solid rgba(168,189,214,.2); }
     .toolbar-actions { display: flex; gap: 6px; }
     .btn-tool {
       padding: 4px 10px;
@@ -542,6 +545,17 @@
       white-space: nowrap;
     }
     .btn-reminder:hover { border-color: #60a5fa; color: #60a5fa; }
+    /* Grid 2 columnas en desktop */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .cards-grid .card { margin-bottom: 0; }
+    @media (min-width: 720px) {
+      .cards-grid { grid-template-columns: 1fr 1fr; }
+    }
     /* Grupos agrupados */
     .grupo-section {
       margin-bottom: 10px;
@@ -651,7 +665,7 @@
     </div>
 
     <div class="toolbar">
-      <span class="toolbar-info" id="toolbar-info">Cargando...</span>
+      <span class="toolbar-info" id="toolbar-info">Cargando...</span><span id="data-source-badge"></span>
       <div class="toolbar-actions">
         <button class="btn-tool" id="btn-export" title="Exportar modificaciones locales como archivo JSON">Exportar</button>
         <button class="btn-tool" id="btn-import" title="Restaurar modificaciones desde un archivo JSON">Importar</button>
@@ -696,9 +710,9 @@
 <div class="toast oculto" id="toast" role="status" aria-live="polite"></div>
 
 <script>
-const URL_FIXTURE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTI-SJcBOdYUf0BOGWuKNRYyofLFBZdDdYlTNjklAg7UYVjI_rHuheHtFyvLTH8rw/pub?gid=534628115&single=true&output=csv";
+const URL_WC26    = "https://worldcup26.ir/get/games";
 const URL_TABLA   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTI-SJcBOdYUf0BOGWuKNRYyofLFBZdDdYlTNjklAg7UYVjI_rHuheHtFyvLTH8rw/pub?gid=30061453&single=true&output=csv";
-const LS_FIXTURE  = "adn_fixture_cache";
+const LS_FIXTURE  = "adn_fixture_v2";    // v2 = fuente WC26 API
 const LS_TABLA    = "adn_tabla_cache";
 const LS_EDITS    = "adn_fixture_edits";
 const CACHE_TTL   = 10 * 60 * 1000;
@@ -709,6 +723,7 @@ let vistaActual = "fixture";
 let filtroActual= "todos";
 let grupoActual = "todos";
 let modalId     = null;
+let _fixtureEsLive = false;
 
 function getEdits() {
   try { return JSON.parse(localStorage.getItem(LS_EDITS) || "{}"); } catch { return {}; }
@@ -747,17 +762,51 @@ function parseCSV(texto) {
   return filas;
 }
 
+const FIXTURE_EMBEDDED=[{"equipo1":"Spain","equipo2":"Cape Verde","grupo":"H","fase":"Grupo","fecha":"15/06/2026","hora":"12:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Saudi Arabia","equipo2":"Uruguay","grupo":"H","fase":"Grupo","fecha":"15/06/2026","hora":"21:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Austria","equipo2":"Jordan","grupo":"J","fase":"Grupo","fecha":"16/06/2026","hora":"12:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Uzbekistan","equipo2":"Colombia","grupo":"K","fase":"Grupo","fecha":"17/06/2026","hora":"18:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Uruguay","equipo2":"Cape Verde","grupo":"H","fase":"Grupo","fecha":"21/06/2026","hora":"21:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Colombia","equipo2":"Democratic Republic of the Congo","grupo":"K","fase":"Grupo","fecha":"23/06/2026","hora":"12:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Qatar","equipo2":"Switzerland","grupo":"B","fase":"Grupo","fecha":"13/06/2026","hora":"12:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Belgium","equipo2":"Egypt","grupo":"G","fase":"Grupo","fecha":"15/06/2026","hora":"15:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Mexico","equipo2":"South Korea","grupo":"A","fase":"Grupo","fecha":"18/06/2026","hora":"13:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Germany","equipo2":"Ivory Coast","grupo":"E","fase":"Grupo","fecha":"20/06/2026","hora":"19:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Netherlands","equipo2":"Sweden","grupo":"F","fase":"Grupo","fecha":"20/06/2026","hora":"12:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"France","equipo2":"Iraq","grupo":"I","fase":"Grupo","fecha":"22/06/2026","hora":"17:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Jordan","equipo2":"Algeria","grupo":"J","fase":"Grupo","fecha":"22/06/2026","hora":"11:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Portugal","equipo2":"Uzbekistan","grupo":"K","fase":"Grupo","fecha":"23/06/2026","hora":"15:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Japan","equipo2":"Sweden","grupo":"F","fase":"Grupo","fecha":"26/06/2026","hora":"18:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Mexico","equipo2":"South Africa","grupo":"A","fase":"Grupo","fecha":"11/06/2026","hora":"13:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Brazil","equipo2":"Morocco","grupo":"C","fase":"Grupo","fecha":"13/06/2026","hora":"18:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Ivory Coast","equipo2":"Ecuador","grupo":"E","fase":"Grupo","fecha":"14/06/2026","hora":"18:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Netherlands","equipo2":"Japan","grupo":"F","fase":"Grupo","fecha":"14/06/2026","hora":"15:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Switzerland","equipo2":"Bosnia and Herzegovina","grupo":"B","fase":"Grupo","fecha":"18/06/2026","hora":"12:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Tunisia","equipo2":"Japan","grupo":"F","fase":"Grupo","fecha":"20/06/2026","hora":"15:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"New Zealand","equipo2":"Egypt","grupo":"G","fase":"Grupo","fecha":"21/06/2026","hora":"12:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Norway","equipo2":"France","grupo":"I","fase":"Grupo","fecha":"26/06/2026","hora":"15:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Colombia","equipo2":"Portugal","grupo":"K","fase":"Grupo","fecha":"27/06/2026","hora":"19:30","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Haiti","equipo2":"Scotland","grupo":"C","fase":"Grupo","fecha":"13/06/2026","hora":"21:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Iraq","equipo2":"Norway","grupo":"I","fase":"Grupo","fecha":"16/06/2026","hora":"18:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Portugal","equipo2":"Democratic Republic of the Congo","grupo":"K","fase":"Grupo","fecha":"17/06/2026","hora":"12:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"England","equipo2":"Croatia","grupo":"L","fase":"Grupo","fecha":"17/06/2026","hora":"15:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"United States","equipo2":"Australia","grupo":"D","fase":"Grupo","fecha":"19/06/2026","hora":"12:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Spain","equipo2":"Saudi Arabia","grupo":"H","fase":"Grupo","fecha":"21/06/2026","hora":"18:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Norway","equipo2":"Senegal","grupo":"I","fase":"Grupo","fecha":"22/06/2026","hora":"14:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Panama","equipo2":"Croatia","grupo":"L","fase":"Grupo","fecha":"23/06/2026","hora":"19:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Morocco","equipo2":"Haiti","grupo":"C","fase":"Grupo","fecha":"24/06/2026","hora":"18:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Tunisia","equipo2":"Netherlands","grupo":"F","fase":"Grupo","fecha":"26/06/2026","hora":"18:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Senegal","equipo2":"Iraq","grupo":"I","fase":"Grupo","fecha":"26/06/2026","hora":"15:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Democratic Republic of the Congo","equipo2":"Uzbekistan","grupo":"K","fase":"Grupo","fecha":"27/06/2026","hora":"19:30","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Iran","equipo2":"New Zealand","grupo":"G","fase":"Grupo","fecha":"15/06/2026","hora":"18:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Argentina","equipo2":"Algeria","grupo":"J","fase":"Grupo","fecha":"16/06/2026","hora":"20:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Czech Republic","equipo2":"South Africa","grupo":"A","fase":"Grupo","fecha":"18/06/2026","hora":"18:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"England","equipo2":"Ghana","grupo":"L","fase":"Grupo","fecha":"23/06/2026","hora":"21:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Czech Republic","equipo2":"Mexico","grupo":"A","fase":"Grupo","fecha":"24/06/2026","hora":"19:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Curaçao","equipo2":"Ivory Coast","grupo":"E","fase":"Grupo","fecha":"25/06/2026","hora":"16:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Canada","equipo2":"Bosnia and Herzegovina","grupo":"B","fase":"Grupo","fecha":"12/06/2026","hora":"15:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Ghana","equipo2":"Panama","grupo":"L","fase":"Grupo","fecha":"17/06/2026","hora":"21:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Brazil","equipo2":"Haiti","grupo":"C","fase":"Grupo","fecha":"19/06/2026","hora":"21:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Ecuador","equipo2":"Curaçao","grupo":"E","fase":"Grupo","fecha":"20/06/2026","hora":"19:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Switzerland","equipo2":"Canada","grupo":"B","fase":"Grupo","fecha":"25/06/2026","hora":"18:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Ecuador","equipo2":"Germany","grupo":"E","fase":"Grupo","fecha":"25/06/2026","hora":"16:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Paraguay","equipo2":"Australia","grupo":"D","fase":"Grupo","fecha":"25/06/2026","hora":"19:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"New Zealand","equipo2":"Belgium","grupo":"G","fase":"Grupo","fecha":"26/06/2026","hora":"20:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Panama","equipo2":"England","grupo":"L","fase":"Grupo","fecha":"27/06/2026","hora":"17:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Croatia","equipo2":"Ghana","grupo":"L","fase":"Grupo","fecha":"27/06/2026","hora":"17:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Algeria","equipo2":"Austria","grupo":"J","fase":"Grupo","fecha":"27/06/2026","hora":"20:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Australia","equipo2":"Turkey","grupo":"D","fase":"Grupo","fecha":"13/06/2026","hora":"12:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Germany","equipo2":"Curaçao","grupo":"E","fase":"Grupo","fecha":"14/06/2026","hora":"12:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Sweden","equipo2":"Tunisia","grupo":"F","fase":"Grupo","fecha":"14/06/2026","hora":"21:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Canada","equipo2":"Qatar","grupo":"B","fase":"Grupo","fecha":"18/06/2026","hora":"15:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Scotland","equipo2":"Morocco","grupo":"C","fase":"Grupo","fecha":"19/06/2026","hora":"18:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Turkey","equipo2":"Paraguay","grupo":"D","fase":"Grupo","fecha":"19/06/2026","hora":"15:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Belgium","equipo2":"Iran","grupo":"G","fase":"Grupo","fecha":"21/06/2026","hora":"15:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Scotland","equipo2":"Brazil","grupo":"C","fase":"Grupo","fecha":"24/06/2026","hora":"18:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"South Africa","equipo2":"South Korea","grupo":"A","fase":"Grupo","fecha":"24/06/2026","hora":"19:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Bosnia and Herzegovina","equipo2":"Qatar","grupo":"B","fase":"Grupo","fecha":"25/06/2026","hora":"18:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Turkey","equipo2":"United States","grupo":"D","fase":"Grupo","fecha":"25/06/2026","hora":"19:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Egypt","equipo2":"Iran","grupo":"G","fase":"Grupo","fecha":"26/06/2026","hora":"20:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"South Korea","equipo2":"Czech Republic","grupo":"A","fase":"Grupo","fecha":"11/06/2026","hora":"20:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"United States","equipo2":"Paraguay","grupo":"D","fase":"Grupo","fecha":"12/06/2026","hora":"18:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"France","equipo2":"Senegal","grupo":"I","fase":"Grupo","fecha":"16/06/2026","hora":"15:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Argentina","equipo2":"Austria","grupo":"J","fase":"Grupo","fecha":"22/06/2026","hora":"20:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Cape Verde","equipo2":"Saudi Arabia","grupo":"H","fase":"Grupo","fecha":"27/06/2026","hora":"17:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Uruguay","equipo2":"Spain","grupo":"H","fase":"Grupo","fecha":"27/06/2026","hora":"17:00","goles1":"","goles2":"","estado":"Pendiente","sede":""},{"equipo1":"Jordan","equipo2":"Argentina","grupo":"J","fase":"Grupo","fecha":"27/06/2026","hora":"20:00","goles1":"","goles2":"","estado":"Pendiente","sede":""}];
+
 async function cargarFixture() {
   const cached = getCache(LS_FIXTURE);
   if (cached) { partidos = cached; return true; }
   try {
-    const filas = parseCSV(await (await fetch(URL_FIXTURE)).text());
-    if (filas.length < 2) throw new Error("Sin datos");
-    const h = filas[0];
-    partidos = filas.slice(1).map(f => { const o={}; h.forEach((k,i)=>{o[clean(k)]=f[i]||"";}); return o; });
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), 5000);
+    const resp = await fetch(URL_WC26, { signal: ctrl.signal });
+    clearTimeout(tid);
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const json = await resp.json();
+    const games = json.games || [];
+    if (!games.length) throw new Error("Sin datos de la API");
+    const phaseMap = {
+      "group":"Grupo", "round_of_32":"Ronda de 32", "round_of_16":"Octavos",
+      "quarter_final":"Cuartos", "semi_final":"Semifinal", "final":"Final"
+    };
+    partidos = games.map(g => {
+      const dm  = (g.local_date||"").match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}:\d{2})/);
+      const fin = g.finished === "TRUE";
+      const live = !fin && g.time_elapsed &&
+                   g.time_elapsed !== "notstarted" && g.time_elapsed !== "no started";
+      return {
+        equipo1: g.home_team_name_en || "",
+        equipo2: g.away_team_name_en || "",
+        grupo:   g.type === "group" ? (g.group||"").toUpperCase() : "",
+        fase:    phaseMap[g.type] || (g.type||"Partido"),
+        fecha:   dm ? dm[2]+"/"+dm[1]+"/"+dm[3] : "",
+        hora:    dm ? dm[4] : "",
+        goles1:  fin ? (g.home_score||"") : "",
+        goles2:  fin ? (g.away_score||"") : "",
+        estado:  fin ? "Finalizado" : live ? "En Vivo" : "Pendiente",
+        sede:    ""
+      };
+    });
     setCache(LS_FIXTURE, partidos);
+    _fixtureEsLive = true;
     return true;
-  } catch(e) { console.error("Error fixture:",e); return false; }
+  } catch(e) {
+    console.warn("API no disponible, usando datos embebidos:", e.message);
+    partidos = FIXTURE_EMBEDDED.map(p => Object.assign({}, p));
+    _fixtureEsLive = false;
+    return true;
+  }
 }
 
 async function cargarTabla() {
@@ -1096,14 +1145,20 @@ function mostrarFixture() {
       const secDiv = document.createElement("div");
       secDiv.className = "grupo-section";
       secDiv.innerHTML = `<div class="grupo-section-title">${sec}</div>`;
+      const gridDiv = document.createElement("div");
+      gridDiv.className = "cards-grid";
+      secDiv.appendChild(gridDiv);
       contenedor.appendChild(secDiv);
       secciones[sec].forEach((p, i) => {
-        secDiv.appendChild(buildCard(p, secIdx++, edits));
+        gridDiv.appendChild(buildCard(p, secIdx++, edits));
       });
     });
   } else {
+    const gridDiv = document.createElement("div");
+    gridDiv.className = "cards-grid";
+    contenedor.appendChild(gridDiv);
     ordenados.forEach((p, i) => {
-      contenedor.appendChild(buildCard(p, i, edits));
+      gridDiv.appendChild(buildCard(p, i, edits));
     });
   }
 
@@ -1323,10 +1378,104 @@ function configurarEventos() {
   });
 }
 
+// ─── WC26 API — horarios y estado ─────────────────────────────────────────
+// Mapa de alias: nombre en español (normalizado) → nombre en inglés (API)
+const TEAM_ALIASES = {
+  "alemania":"germany","espana":"spain","holanda":"netherlands",
+  "paises bajos":"netherlands","belgica":"belgium","noruega":"norway",
+  "suecia":"sweden","suiza":"switzerland","tunez":"tunisia","egipto":"egypt",
+  "marruecos":"morocco","costa de marfil":"ivory coast",
+  "republica checa":"czech republic","corea del sur":"south korea",
+  "corea sur":"south korea","estados unidos":"united states",
+  "ee uu":"united states","usa":"united states","turquia":"turkey",
+  "japon":"japan","brasil":"brazil","escocia":"scotland",
+  "nueva zelanda":"new zealand","croacia":"croatia","cabo verde":"cape verde",
+  "arabia saudita":"saudi arabia","arabia saudi":"saudi arabia",
+  "argelia":"algeria","jordania":"jordan","irak":"iraq","iran":"iran",
+  "francia":"france","rd congo":"democratic republic of the congo",
+  "rep dem congo":"democratic republic of the congo",
+  "rdc":"democratic republic of the congo",
+  "sudafrica":"south africa","inglaterra":"england",
+  "curacao":"curacao","curazao":"curacao"
+};
+
+function normTeam(s) {
+  if (!s) return "";
+  let n = s.toLowerCase().trim()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^a-z0-9 ]/g,"").replace(/\s+/g," ").trim();
+  return TEAM_ALIASES[n] || n;
+}
+
+function getCacheWC26() {
+  try {
+    const raw = localStorage.getItem(LS_WC26);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    return Date.now() - p.ts > WC26_TTL ? null : p.data;
+  } catch { return null; }
+}
+
+async function cargarWC26() {
+  const cached = getCacheWC26();
+  if (cached) return cached;
+  try {
+    const resp = await fetch(URL_WC26);
+    const json = await resp.json();
+    const games = json.games || [];
+    localStorage.setItem(LS_WC26, JSON.stringify({ data: games, ts: Date.now() }));
+    return games;
+  } catch(e) { console.warn("WC26 API no disponible:", e); return []; }
+}
+
+function enriquecerConWC26(games) {
+  if (!games || !games.length) return;
+  // Construir lookup normalizado
+  const lookup = {};
+  for (const g of games) {
+    const h = normTeam(g.home_team_name_en);
+    const a = normTeam(g.away_team_name_en);
+    if (h && a) {
+      lookup[h + "|" + a] = g;
+      lookup[a + "|" + h] = g;  // también al revés
+    }
+  }
+  let enrich = 0;
+  for (const p of partidos) {
+    const k = normTeam(p.equipo1) + "|" + normTeam(p.equipo2);
+    const g = lookup[k];
+    if (!g || !g.local_date) continue;
+    // local_date: "MM/DD/YYYY HH:MM"
+    const m = g.local_date.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}:\d{2})/);
+    if (!m) continue;
+    const [, mm, dd, yyyy, hhmm] = m;
+    if (!p.hora || p.hora === "") {
+      p.hora = hhmm;
+      enrich++;
+    }
+    if (!p.fecha || p.fecha === "") {
+      p.fecha = `${dd}/${mm}/${yyyy}`;
+    }
+    // Marcar si el partido ya terminó según la API (para indicador visual)
+    if (!p._apiFinished) p._apiFinished = (g.finished === "TRUE");
+  }
+  if (enrich > 0) console.log(`[WC26] ${enrich} partidos enriquecidos con horarios`);
+}
+
 async function init() {
-  document.getElementById("contenido").innerHTML=
+  document.getElementById("contenido").innerHTML =
     '<div class="loading-state"><div class="spinner"></div><div>Cargando datos del torneo...</div></div>';
-  await Promise.all([cargarFixture(),cargarTabla()]);
+  await Promise.all([cargarFixture(), cargarTabla()]);
+  const badge = document.getElementById("data-source-badge");
+  if (badge) {
+    if (_fixtureEsLive) {
+      badge.innerHTML = '<span class="data-source live">EN VIVO</span>';
+      badge.title = "Datos obtenidos en tiempo real desde worldcup26.ir";
+    } else {
+      badge.innerHTML = '<span class="data-source static">ESTATICO</span>';
+      badge.title = "Usando datos embebidos. La API no estuvo disponible.";
+    }
+  }
   document.getElementById("filtros-fixture").classList.add("visible");
   configurarEventos();
   mostrarFixture();
